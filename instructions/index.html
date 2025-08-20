@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemoDesk Instructions</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            overflow: hidden;
+        }
+        
+        .container {
+            width: 100%;
+            height: 100%;
+            padding: 24px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .booklet-container {
+            position: relative;
+            cursor: ew-resize;
+            transition: all 0.5s ease-in-out;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            max-height: 600px;
+            margin: 0 auto;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .booklet-container.expanded {
+            max-width: 90%;
+            max-height: 90%;
+            scale: 1.05;
+            cursor: pointer;
+        }
+        
+        .booklet-container:not(.expanded) {
+            max-width: 800px;
+            max-height: 600px;
+        }
+        
+        .booklet-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            transition: all 0.5s ease-in-out;
+        }
+        
+        .booklet-container.expanded .booklet-image {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .controls {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            padding: 0 32px 24px 32px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .control-text {
+            color: #64748b;
+            font-size: 20px;
+            line-height: 28px;
+            font-weight: 400;
+            pointer-events: auto;
+        }
+        
+        .page-counter {
+            color: #64748b;
+            font-size: 20px;
+            line-height: 28px;
+            font-weight: 400;
+            pointer-events: auto;
+            text-align: right;
+        }
+        
+        .close-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            color: black;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .close-button.visible {
+            display: flex;
+        }
+        
+        .placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="booklet-container" id="booklet">
+            <img 
+                class="booklet-image" 
+                id="bookletImage" 
+                src="assets/page-1.png" 
+                alt="Instructions Page"
+                onerror="this.style.display='none'; document.getElementById('placeholder').style.display='flex';"
+            />
+            <div class="placeholder" id="placeholder" style="display: none;">
+                <div>
+                    <h2>Instructions Loading...</h2>
+                    <p>PNG pages will appear here once uploaded to GitHub</p>
+                    <p>Current page: <span id="currentPage">1</span> of <span id="totalPages">48</span></p>
+                </div>
+            </div>
+            <button class="close-button" id="closeButton">×</button>
+        </div>
+        
+        <div class="controls">
+            <div class="control-text" id="controlText">
+                Move mouse left/right to scrub through pages. Click to expand.
+            </div>
+            <div class="page-counter" id="pageCounter">
+                Page 1 of 48
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Interactive Notebook Logic
+        class InteractiveNotebook {
+            constructor() {
+                this.currentPage = 0;
+                this.totalPages = 48;
+                this.isExpanded = false;
+                this.isAnimating = false;
+                
+                this.booklet = document.getElementById('booklet');
+                this.bookletImage = document.getElementById('bookletImage');
+                this.closeButton = document.getElementById('closeButton');
+                this.controlText = document.getElementById('controlText');
+                this.pageCounter = document.getElementById('pageCounter');
+                this.placeholder = document.getElementById('placeholder');
+                this.currentPageSpan = document.getElementById('currentPage');
+                this.totalPagesSpan = document.getElementById('totalPages');
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.updateDisplay();
+                this.loadPage(0);
+            }
+            
+            setupEventListeners() {
+                // Keyboard navigation
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'ArrowLeft') this.previousPage();
+                    if (e.key === 'ArrowRight') this.nextPage();
+                    if (e.key === 'Escape' && this.isExpanded) this.collapse();
+                });
+                
+                // Mouse hover-to-scrub (non-expanded mode)
+                this.booklet.addEventListener('mousemove', (e) => {
+                    if (this.isExpanded) return;
+                    this.handleHoverScrub(e);
+                });
+                
+                // Click to expand/collapse
+                this.booklet.addEventListener('click', (e) => {
+                    if (!this.isExpanded) {
+                        this.expand();
+                    }
+                });
+                
+                // Click left/right to turn pages (expanded mode)
+                this.booklet.addEventListener('click', (e) => {
+                    if (!this.isExpanded) return;
+                    this.handleExpandedClick(e);
+                });
+                
+                // Mouse move for cursor changes in expanded mode
+                this.booklet.addEventListener('mousemove', (e) => {
+                    if (!this.isExpanded) return;
+                    this.handleExpandedMouseMove(e);
+                });
+                
+                // Close button
+                this.closeButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.collapse();
+                });
+                
+                // Mouse leave for cursor reset
+                this.booklet.addEventListener('mouseleave', () => {
+                    if (!this.isExpanded) {
+                        this.booklet.style.cursor = 'ew-resize';
+                    }
+                });
+            }
+            
+            handleHoverScrub(e) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const percent = Math.max(0, Math.min(1, x / rect.width));
+                const pageIndex = Math.floor(percent * this.totalPages);
+                
+                if (pageIndex !== this.currentPage && pageIndex >= 0 && pageIndex < this.totalPages) {
+                    this.loadPage(pageIndex);
+                }
+            }
+            
+            handleExpandedClick(e) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                if (x < rect.width / 2) {
+                    this.previousPage();
+                } else {
+                    this.nextPage();
+                }
+            }
+            
+            handleExpandedMouseMove(e) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                if (x < rect.width / 2) {
+                    this.booklet.style.cursor = 'w-resize';
+                } else {
+                    this.booklet.style.cursor = 'e-resize';
+                }
+            }
+            
+            expand() {
+                this.isExpanded = true;
+                this.booklet.classList.add('expanded');
+                this.closeButton.classList.add('visible');
+                this.controlText.textContent = 'Click left/right to turn pages. ESC or × to exit.';
+                this.booklet.style.cursor = 'pointer';
+            }
+            
+            collapse() {
+                this.isExpanded = false;
+                this.booklet.classList.remove('expanded');
+                this.closeButton.classList.remove('visible');
+                this.controlText.textContent = 'Move mouse left/right to scrub through pages. Click to expand.';
+                this.booklet.style.cursor = 'ew-resize';
+            }
+            
+            nextPage() {
+                if (this.currentPage < this.totalPages - 1) {
+                    this.loadPage(this.currentPage + 1);
+                }
+            }
+            
+            previousPage() {
+                if (this.currentPage > 0) {
+                    this.loadPage(this.currentPage - 1);
+                }
+            }
+            
+            loadPage(pageIndex) {
+                this.currentPage = pageIndex;
+                this.updateDisplay();
+                
+                // Try to load PNG from assets folder, fallback to placeholder
+                const pngPath = `assets/page-${pageIndex + 1}.png`;
+                this.bookletImage.src = pngPath;
+                
+                // Show placeholder if PNG fails to load
+                this.bookletImage.onerror = () => {
+                    this.bookletImage.style.display = 'none';
+                    this.placeholder.style.display = 'flex';
+                    this.currentPageSpan.textContent = pageIndex + 1;
+                    this.totalPagesSpan.textContent = this.totalPages;
+                };
+                
+                this.bookletImage.onload = () => {
+                    this.bookletImage.style.display = 'block';
+                    this.placeholder.style.display = 'none';
+                };
+            }
+            
+            updateDisplay() {
+                this.pageCounter.textContent = `Page ${this.currentPage + 1} of ${this.totalPages}`;
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new InteractiveNotebook();
+        });
+    </script>
+</body>
+</html>
