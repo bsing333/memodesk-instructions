@@ -100,9 +100,8 @@
             padding: 0 32px 24px 32px;
             pointer-events: none;
             z-index: 10;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
         }
         
         .control-text {
@@ -165,7 +164,7 @@
             <img 
                 class="booklet-image" 
                 id="bookletImage" 
-                src="assets/page-1.png" 
+                src="pages/page-1.png" 
                 alt="Instructions Page"
                 onerror="this.style.display='none'; document.getElementById('placeholder').style.display='flex';"
             />
@@ -194,9 +193,10 @@
         class InteractiveNotebook {
             constructor() {
                 this.currentPage = 0;
-                this.totalPages = 48;
+                this.totalPages = 0; // Will be set dynamically
                 this.isExpanded = false;
                 this.isAnimating = false;
+                this.availablePages = []; // Array to store available page numbers
                 
                 this.booklet = document.getElementById('booklet');
                 this.bookletImage = document.getElementById('bookletImage');
@@ -210,10 +210,53 @@
                 this.init();
             }
             
-            init() {
+            async init() {
+                await this.discoverAvailablePages();
                 this.setupEventListeners();
                 this.updateDisplay();
-                this.loadPage(0);
+                if (this.totalPages > 0) {
+                    this.loadPage(0);
+                }
+            }
+            
+            async discoverAvailablePages() {
+                // Try to find available pages by testing URLs
+                this.availablePages = [];
+                this.totalPages = 0;
+                
+                // Test pages 1-100 to see which ones exist
+                const maxTestPages = 100;
+                const promises = [];
+                
+                for (let i = 1; i <= maxTestPages; i++) {
+                    promises.push(this.testPageExists(i));
+                }
+                
+                // Wait for all tests to complete
+                const results = await Promise.all(promises);
+                
+                // Filter to only existing pages
+                this.availablePages = results.filter(exists => exists).map((_, index) => index + 1);
+                this.totalPages = this.availablePages.length;
+                
+                console.log(`Found ${this.totalPages} available pages:`, this.availablePages);
+                
+                // Update placeholder text
+                if (this.totalPages > 0) {
+                    this.totalPagesSpan.textContent = this.totalPages;
+                }
+            }
+            
+            async testPageExists(pageNumber) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => resolve(true);
+                    img.onerror = () => resolve(false);
+                    img.src = `pages/page-${pageNumber}.png`;
+                    
+                    // Timeout after 2 seconds
+                    setTimeout(() => resolve(false), 2000);
+                });
             }
             
             setupEventListeners() {
@@ -264,6 +307,8 @@
             }
             
             handleHoverScrub(e) {
+                if (this.totalPages === 0) return;
+                
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const percent = Math.max(0, Math.min(1, x / rect.width));
@@ -331,18 +376,24 @@
             }
             
             loadPage(pageIndex) {
+                if (pageIndex < 0 || pageIndex >= this.totalPages) {
+                    console.warn(`Page ${pageIndex} is out of range. Total pages: ${this.totalPages}`);
+                    return;
+                }
+                
                 this.currentPage = pageIndex;
                 this.updateDisplay();
                 
-                // Try to load PNG from assets folder, fallback to placeholder
-                const pngPath = `assets/page-${pageIndex + 1}.png`;
+                // Get the actual page number from available pages array
+                const actualPageNumber = this.availablePages[pageIndex];
+                const pngPath = `pages/page-${actualPageNumber}.png`;
                 this.bookletImage.src = pngPath;
                 
                 // Show placeholder if PNG fails to load
                 this.bookletImage.onerror = () => {
                     this.bookletImage.style.display = 'none';
                     this.placeholder.style.display = 'flex';
-                    this.currentPageSpan.textContent = pageIndex + 1;
+                    this.currentPageSpan.textContent = actualPageNumber;
                     this.totalPagesSpan.textContent = this.totalPages;
                 };
                 
@@ -359,7 +410,31 @@
         
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            new InteractiveNotebook();
+            const notebook = new InteractiveNotebook();
+            
+            // Show loading message while discovering pages
+            const loadingMessage = document.createElement('div');
+            loadingMessage.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 20px;
+                border-radius: 10px;
+                z-index: 1000;
+                font-size: 18px;
+            `;
+            loadingMessage.textContent = 'Discovering available pages...';
+            document.body.appendChild(loadingMessage);
+            
+            // Remove loading message after pages are discovered
+            setTimeout(() => {
+                if (loadingMessage.parentNode) {
+                    loadingMessage.remove();
+                }
+            }, 3000);
         });
     </script>
 </body>

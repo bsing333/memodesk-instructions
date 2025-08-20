@@ -4,6 +4,8 @@ This repository hosts the complete interactive instruction booklet for MemoDesk.
 
 ## Structure
 - `instructions/` - Complete interactive instruction booklet (PNG-based + all controls)
+  - `pages/` - PNG instruction pages (automatically detected)
+  - `assets/` - Custom cursors, icons, and other design elements
 - `version.txt` - Current version number for update checking
 - `changelog.md` - Update notes and changelog
 

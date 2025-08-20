@@ -1,23 +1,17 @@
 # Assets Folder
 
-This folder contains the PNG instruction pages for the interactive booklet.
+This folder is reserved for additional assets like custom cursors, icons, and other design elements.
 
-## Required Files
-- `page-1.png` - Cover page
-- `page-2.png` - Table of contents
-- `page-3.png` - Introduction
-- `page-4.png` - Getting started
-- ... (continue through page-48.png)
+## Custom Cursors
+- Add your custom cursor files here (`.cur`, `.png`, etc.)
+- The default cursors don't capture the energy you're looking for
+- Perfect place for cursor delights!
 
-## File Naming
-All files must follow the pattern: `page-X.png` where X is the page number (1-48)
+## Other Assets
+- Icons
+- Background images
+- UI elements
+- Any other design assets
 
-## Design Notes
-- Design these pages in Figma
-- Export as PNG format
-- Recommended dimensions: 800x600 or similar aspect ratio
-- Each page should contain the instruction content for that section
-
-## Current Status
-- Placeholder files will be replaced with actual PNG designs
-- The interactive booklet will show placeholder content until PNGs are uploaded
+## Note
+PNG instruction pages are now stored in the `pages/` folder for better organization.
