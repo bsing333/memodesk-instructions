@@ -119,6 +119,31 @@
             font-weight: 400;
             pointer-events: auto;
             text-align: right;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        
+        .page-label {
+            width: 45px;
+            text-align: left;
+            flex-shrink: 0;
+            padding-right: 0.5px;
+        }
+        
+        .page-numbers {
+            width: 60px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            flex-shrink: 0;
+        }
+        
+        .page-total {
+            width: 50px;
+            text-align: left;
+            flex-shrink: 0;
+            white-space: nowrap;
+            padding-left: 2.5px;
         }
         
         .close-button {
@@ -183,8 +208,10 @@
         <div class="control-text" id="controlText">
             Move mouse left/right to scrub through pages. Click to expand.
         </div>
-        <div class="page-counter" id="pageCounter">
-            Page 1 of 48
+        <div class="page-counter">
+            <span class="page-label">Page</span>
+            <span class="page-numbers" id="pageCounter">01-02</span>
+            <span class="page-total">of 48</span>
         </div>
     </div>
 
@@ -193,10 +220,9 @@
         class InteractiveNotebook {
             constructor() {
                 this.currentPage = 0;
-                this.totalPages = 0; // Will be set dynamically
+                this.totalPages = 48; // Hardcoded total pages
                 this.isExpanded = false;
                 this.isAnimating = false;
-                this.availablePages = []; // Array to store available page numbers
                 
                 this.booklet = document.getElementById('booklet');
                 this.bookletImage = document.getElementById('bookletImage');
@@ -210,53 +236,23 @@
                 this.init();
             }
             
-            async init() {
-                await this.discoverAvailablePages();
+            init() {
                 this.setupEventListeners();
                 this.updateDisplay();
-                if (this.totalPages > 0) {
-                    this.loadPage(0);
-                }
+                this.loadPage(0);
             }
             
-            async discoverAvailablePages() {
-                // Try to find available pages by testing URLs
-                this.availablePages = [];
-                this.totalPages = 0;
-                
-                // Test pages 1-100 to see which ones exist
-                const maxTestPages = 100;
-                const promises = [];
-                
-                for (let i = 1; i <= maxTestPages; i++) {
-                    promises.push(this.testPageExists(i));
-                }
-                
-                // Wait for all tests to complete
-                const results = await Promise.all(promises);
-                
-                // Filter to only existing pages
-                this.availablePages = results.filter(exists => exists).map((_, index) => index + 1);
-                this.totalPages = this.availablePages.length;
-                
-                console.log(`Found ${this.totalPages} available pages:`, this.availablePages);
-                
-                // Update placeholder text
-                if (this.totalPages > 0) {
-                    this.totalPagesSpan.textContent = this.totalPages;
-                }
+            // Spread-based page numbering
+            getSpreadPageNumbers(pageIndex) {
+                // Each PNG represents a 2-page spread
+                const leftPage = (pageIndex * 2) + 1;
+                const rightPage = (pageIndex * 2) + 2;
+                return { leftPage, rightPage };
             }
             
-            async testPageExists(pageNumber) {
-                return new Promise((resolve) => {
-                    const img = new Image();
-                    img.onload = () => resolve(true);
-                    img.onerror = () => resolve(false);
-                    img.src = `pages/page-${pageNumber}.png`;
-                    
-                    // Timeout after 2 seconds
-                    setTimeout(() => resolve(false), 2000);
-                });
+            // Format page numbers with leading zeros
+            formatPageNumber(pageNum) {
+                return pageNum.toString().padStart(2, '0');
             }
             
             setupEventListeners() {
@@ -307,14 +303,13 @@
             }
             
             handleHoverScrub(e) {
-                if (this.totalPages === 0) return;
-                
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const percent = Math.max(0, Math.min(1, x / rect.width));
-                const pageIndex = Math.floor(percent * this.totalPages);
+                const maxSpreads = this.totalPages / 2;
+                const pageIndex = Math.floor(percent * maxSpreads);
                 
-                if (pageIndex !== this.currentPage && pageIndex >= 0 && pageIndex < this.totalPages) {
+                if (pageIndex !== this.currentPage && pageIndex >= 0 && pageIndex < maxSpreads) {
                     this.loadPage(pageIndex);
                 }
             }
@@ -376,26 +371,26 @@
             }
             
             loadPage(pageIndex) {
-                if (pageIndex < 0 || pageIndex >= this.totalPages) {
-                    console.warn(`Page ${pageIndex} is out of range. Total pages: ${this.totalPages}`);
+                if (pageIndex < 0 || pageIndex >= this.totalPages / 2) {
+                    console.warn(`Spread ${pageIndex} is out of range. Total spreads: ${this.totalPages / 2}`);
                     return;
                 }
                 
                 this.currentPage = pageIndex;
                 this.updateDisplay();
                 
-                // Get the actual page number from available pages array
-                const actualPageNumber = this.availablePages[pageIndex];
-                const pngPath = `pages/page-${actualPageNumber}.png`;
+                // Each PNG represents a spread, so use pageIndex + 1 for filename
+                const pngPath = `pages/page-${pageIndex + 1}.png`;
                 this.bookletImage.src = pngPath;
                 
                 // Show placeholder if PNG fails to load
-                this.bookletImage.onerror = () => {
-                    this.bookletImage.style.display = 'none';
-                    this.placeholder.style.display = 'flex';
-                    this.currentPageSpan.textContent = actualPageNumber;
-                    this.totalPagesSpan.textContent = this.totalPages;
-                };
+                                    this.bookletImage.onerror = () => {
+                        this.bookletImage.style.display = 'none';
+                        this.placeholder.style.display = 'flex';
+                        const spreadNumbers = this.getSpreadPageNumbers(pageIndex);
+                        this.currentPageSpan.textContent = `${this.formatPageNumber(spreadNumbers.leftPage)}-${this.formatPageNumber(spreadNumbers.rightPage)}`;
+                        this.totalPagesSpan.textContent = this.totalPages;
+                    };
                 
                 this.bookletImage.onload = () => {
                     this.bookletImage.style.display = 'block';
@@ -404,37 +399,14 @@
             }
             
             updateDisplay() {
-                this.pageCounter.textContent = `Page ${this.currentPage + 1} of ${this.totalPages}`;
+                const spreadNumbers = this.getSpreadPageNumbers(this.currentPage);
+                this.pageCounter.textContent = `${this.formatPageNumber(spreadNumbers.leftPage)}-${this.formatPageNumber(spreadNumbers.rightPage)}`;
             }
         }
         
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            const notebook = new InteractiveNotebook();
-            
-            // Show loading message while discovering pages
-            const loadingMessage = document.createElement('div');
-            loadingMessage.style.cssText = `
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: rgba(0, 0, 0, 0.8);
-                color: white;
-                padding: 20px;
-                border-radius: 10px;
-                z-index: 1000;
-                font-size: 18px;
-            `;
-            loadingMessage.textContent = 'Discovering available pages...';
-            document.body.appendChild(loadingMessage);
-            
-            // Remove loading message after pages are discovered
-            setTimeout(() => {
-                if (loadingMessage.parentNode) {
-                    loadingMessage.remove();
-                }
-            }, 3000);
+            new InteractiveNotebook();
         });
     </script>
 </body>
