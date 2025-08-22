@@ -29,7 +29,7 @@
         
         .booklet-container {
             position: relative;
-            cursor: ew-resize;
+            cursor: pointer;
             transition: all 0.5s ease-in-out;
             overflow: hidden;
             width: 60%;
@@ -55,6 +55,14 @@
             width: 60%;
             max-width: 800px;
             max-height: 600px;
+        }
+        
+        .booklet-container.closed {
+            cursor: pointer;
+        }
+        
+        .booklet-container.closed .booklet-image {
+            filter: brightness(0.8);
         }
         
         /* Ensure proper sizing in iframe context */
@@ -206,11 +214,11 @@
     
     <div class="controls">
         <div class="control-text" id="controlText">
-            Move mouse left/right to scrub through pages. Click to expand.
+            Click to open the instructions booklet.
         </div>
         <div class="page-counter">
             <span class="page-label">Page</span>
-            <span class="page-numbers" id="pageCounter">01-02</span>
+            <span class="page-numbers" id="pageCounter">00-00</span>
             <span class="page-total">of 48</span>
         </div>
     </div>
@@ -223,6 +231,7 @@
                 this.totalPages = 48; // Hardcoded total pages
                 this.isExpanded = false;
                 this.isAnimating = false;
+                this.isOpened = false; // New state to track if book has been opened
                 
                 this.booklet = document.getElementById('booklet');
                 this.bookletImage = document.getElementById('bookletImage');
@@ -240,6 +249,8 @@
                 this.setupEventListeners();
                 this.updateDisplay();
                 this.loadPage(0);
+                // Start in closed state
+                this.booklet.classList.add('closed');
             }
             
             // Spread-based page numbering
@@ -263,14 +274,20 @@
                     if (e.key === 'Escape' && this.isExpanded) this.collapse();
                 });
                 
-                // Mouse hover-to-scrub (non-expanded mode)
+                // Mouse hover-to-scrub (only when opened and not expanded)
                 this.booklet.addEventListener('mousemove', (e) => {
-                    if (this.isExpanded) return;
+                    if (!this.isOpened || this.isExpanded) return;
                     this.handleHoverScrub(e);
                 });
                 
-                // Click to expand/collapse
+                // Initial click to open the booklet
                 this.booklet.addEventListener('click', (e) => {
+                    if (!this.isOpened) {
+                        this.open();
+                        return;
+                    }
+                    
+                    // If already opened, handle expand/collapse
                     if (!this.isExpanded) {
                         this.expand();
                     }
@@ -278,13 +295,13 @@
                 
                 // Click left/right to turn pages (expanded mode)
                 this.booklet.addEventListener('click', (e) => {
-                    if (!this.isExpanded) return;
+                    if (!this.isOpened || !this.isExpanded) return;
                     this.handleExpandedClick(e);
                 });
                 
                 // Mouse move for cursor changes in expanded mode
                 this.booklet.addEventListener('mousemove', (e) => {
-                    if (!this.isExpanded) return;
+                    if (!this.isOpened || !this.isExpanded) return;
                     this.handleExpandedMouseMove(e);
                 });
                 
@@ -296,10 +313,20 @@
                 
                 // Mouse leave for cursor reset
                 this.booklet.addEventListener('mouseleave', () => {
-                    if (!this.isExpanded) {
+                    if (!this.isOpened) {
+                        this.booklet.style.cursor = 'pointer';
+                    } else if (!this.isExpanded) {
                         this.booklet.style.cursor = 'ew-resize';
                     }
                 });
+            }
+            
+            open() {
+                this.isOpened = true;
+                this.booklet.classList.remove('closed');
+                this.booklet.style.cursor = 'ew-resize';
+                this.controlText.textContent = 'Move mouse left/right to scrub through pages. Click to expand.';
+                this.updateDisplay(); // Update to show actual page numbers
             }
             
             handleHoverScrub(e) {
@@ -356,6 +383,9 @@
                 
                 // Reset to 60% width when collapsed
                 this.booklet.style.width = '60%';
+                
+                // Update display to show current page numbers
+                this.updateDisplay();
             }
             
             nextPage() {
@@ -399,6 +429,12 @@
             }
             
             updateDisplay() {
+                if (!this.isOpened) {
+                    // Show "00-00" when closed
+                    this.pageCounter.textContent = '00-00';
+                    return;
+                }
+                
                 const spreadNumbers = this.getSpreadPageNumbers(this.currentPage);
                 this.pageCounter.textContent = `${this.formatPageNumber(spreadNumbers.leftPage)}-${this.formatPageNumber(spreadNumbers.rightPage)}`;
             }
