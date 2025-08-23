@@ -1,0 +1,27 @@
+{
+  "generations": [
+    {
+      "major": 0,
+      "latest": "0.9.1",
+      "free_update_url": "https://briansing.info",
+      "purchase_url": "https://bsing333.github.io"
+    },
+    {
+      "major": 1,
+      "latest": "1.8.2",
+      "free_update_url": "https://briansing.info"
+    },
+    {
+      "major": 2,
+      "latest": "2.9.9",
+      "free_update_url": "https://briansing.info",
+      "purchase_url": "https://bsing333.github.io"
+    },
+    {
+      "major": 3,
+      "latest": "3.3.0",
+      "free_update_url": "https://briansing.info",
+    }
+  ],
+  "latest_major_for_sale": 3
+}
